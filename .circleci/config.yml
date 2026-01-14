@@ -236,7 +236,7 @@ jobs:
       - deploy:
           name: Deploy to AWS Production
           command: |
-            ssh -o StrictHostKeyChecking=no $PROD_SSH_USER@$PROD_SSH_HOST << EOF
+            ssh -o StrictHostKeyChecking=no $PROD_SSH_USER@$PROD_SSH_HOST \<< EOF
             PHP_FPM_VERSION=$(php -v | head -n 1 | cut -d ' ' -f 2 | cut -d '.' -f 1-2)
             cd $PROD_DEPLOY_DIRECTORY
             git pull origin $CIRCLE_BRANCH
