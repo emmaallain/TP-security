@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Docker/Dockerfile
+      args:
+        TAG: dev
+        GIT_COMMIT: ${GIT_COMMIT:-local}
+        GIT_URL: ${GIT_URL:-https://github.com/your-repo}
+        BUILD_DATE: ${BUILD_DATE:-now}
+    container_name: php-devops-tp
+    ports:
+      - "8080:80"
+    volumes:
+      # Mount source code for development
+      - ./src:/var/www/html/src
+      - ./public:/var/www/html/public
+      - ./database:/var/www/html/database
+    environment:
+      - APP_SECRET=${APP_SECRET:-default_secret}
+      - DATABASE_DRIVER=sqlite
+      - DATABASE_DATABASE=/var/www/html/database/db.sqlite
+    restart: unless-stopped
