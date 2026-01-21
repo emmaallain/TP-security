@@ -5,7 +5,6 @@ version: 2.1
 
 # Recommendations
 # ---------------
-
 # General Principles:
 #
 #  1. Descriptive: The job name should clearly describe what the job does.
