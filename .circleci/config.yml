@@ -227,23 +227,24 @@ jobs:
 
 
   deploy-ssh-production:
-    executor: simple-executor
-    steps:
-      - add_ssh_keys:
-          fingerprints:
-            - "${PUBLIC_KEY}"
-      - run:
-          name: Deploy to VPS Production
-          command: |
-            ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_IP \<< EOF
-            PHP_FPM_VERSION=$(php -v | head -n 1 | cut -d ' ' -f 2 | cut -d '.' -f 1-2)
-            # cd $PROD_DEPLOY_DIRECTORY
+  executor: simple-executor
+  steps:
+    - add_ssh_keys:
+        fingerprints:
+          - "${PUBLIC_KEY}"
+    - run:
+        name: Deploy to VPS Production
+        command: |
+          ssh -o StrictHostKeyChecking=no "$VPS_USER@$VPS_IP" '
+            set -e
+            PHP_FPM_VERSION=$(php -v | head -n 1 | cut -d " " -f 2 | cut -d "." -f 1-2)
             mkdir -p prod_directory
             cd prod_directory
-            git pull origin $CIRCLE_BRANCH
+            git pull origin "'"$CIRCLE_BRANCH"'"
             composer install --optimize-autoloader --no-interaction --prefer-dist
-            (flock -w 10 9 || exit 1; sudo -S service php${PHP_FPM_VERSION}-fpm restart ) 9>/tmp/fpm.lock
-            EOF
+            sudo service php${PHP_FPM_VERSION}-fpm restart
+          '
+
 
 
 
