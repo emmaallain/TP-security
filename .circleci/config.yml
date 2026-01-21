@@ -231,13 +231,15 @@ jobs:
     steps:
       - add_ssh_keys:
           fingerprints:
-            - "${PROD_SSH_FINGERPRINT}"
+            - "${PUBLIC_KEY}"
       - deploy:
-          name: Deploy to AWS Production
+          name: Deploy to VPS Production
           command: |
-            ssh -o StrictHostKeyChecking=no $PROD_SSH_USER@$PROD_SSH_HOST \<< EOF
+            ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_IP \<< EOF
             PHP_FPM_VERSION=$(php -v | head -n 1 | cut -d ' ' -f 2 | cut -d '.' -f 1-2)
-            cd $PROD_DEPLOY_DIRECTORY
+            # cd $PROD_DEPLOY_DIRECTORY
+            mkdir -p prod_directory
+            cd prod_directory
             git pull origin $CIRCLE_BRANCH
             composer install --optimize-autoloader --no-interaction --prefer-dist
             (flock -w 10 9 || exit 1; sudo -S service php${PHP_FPM_VERSION}-fpm restart ) 9>/tmp/fpm.lock
