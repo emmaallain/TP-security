@@ -251,7 +251,7 @@ jobs:
       - run:
           name: Deploy to VPS Production
           command: |
-            ssh -o StrictHostKeyChecking=no "$VPS_USER@$VPS_IP" \<< EOF
+            ssh -A -o StrictHostKeyChecking=no "$VPS_USER@$VPS_IP" \<< EOF
             set -e
             # Source profile to load PATH and environment
             if [ -f ~/.bash_profile ]; then
@@ -260,6 +260,12 @@ jobs:
               source ~/.profile
             fi
             export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+
+            # Add GitHub to known_hosts if not already present
+            mkdir -p ~/.ssh
+            if ! grep -q "github.com" ~/.ssh/known_hosts 2>/dev/null; then
+              ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+            fi
 
             # Detect PHP version
             PHP_FPM_VERSION=\$(php -v | head -n 1 | cut -d " " -f 2 | cut -d "." -f 1-2)
