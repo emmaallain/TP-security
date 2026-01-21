@@ -67,6 +67,8 @@ executors:
       - image: cimg/base:stable
         name: localhost
 
+
+
 jobs:
   debug-info:
     executor: php-executor
@@ -90,7 +92,9 @@ jobs:
       - checkout
       - restore_cache:
           keys:
+            # "composer.lock" can be used if it is committed to the repo
             - v1-dependencies-{{ checksum "composer.json" }}
+            # fallback to using the latest cache if no exact match is found
             - v1-dependencies-
       - run:
           name: Install dependencies
@@ -100,6 +104,7 @@ jobs:
             - ./vendor
           key: v1-dependencies-{{ checksum "composer.json" }}
       - *persist_to_workspace
+
 
   lint-phpcs:
     executor: php-executor
@@ -122,6 +127,8 @@ jobs:
           path: phpcs-report.txt
           destination: phpcs-report
 
+
+
   security-check-dependencies:
     executor: php-executor
     steps:
@@ -137,6 +144,8 @@ jobs:
       - store_artifacts:
           path: security-report.json
           destination: security-report
+
+
 
   test-phpunit:
     executor: php-executor
@@ -214,6 +223,7 @@ jobs:
             (flock -w 10 9 || exit 1; sudo -S service php${PHP_FPM_VERSION}-fpm restart ) 9>/tmp/fpm.lock
             EOF
 
+
   deploy-ssh-production:
     executor: simple-executor
     steps:
@@ -230,6 +240,8 @@ jobs:
             composer install --optimize-autoloader --no-interaction --prefer-dist
             (flock -w 10 9 || exit 1; sudo -S service php${PHP_FPM_VERSION}-fpm restart ) 9>/tmp/fpm.lock
             EOF
+
+
 
 
 workflows:
