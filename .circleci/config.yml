@@ -5,7 +5,6 @@ version: 2.1
 
 # Recommendations
 # ---------------
-
 # General Principles:
 #
 #  1. Descriptive: The job name should clearly describe what the job does.
@@ -167,7 +166,6 @@ jobs:
           name: Run PHPUnit
           command: ./vendor/bin/phpunit --testsuite=Unit
 
-
   build-docker-image:
     executor: builder-executor
     steps:
@@ -177,35 +175,35 @@ jobs:
       - run:
           name: Build and Push Docker Image to GHCR (GitHub Container Registry)
           command: |
-            if [ ! -z "$SKIP_BUILD" ]; then
-              echo "Skipping build"
-              circleci step halt
-              exit 0
-            fi
-
+            # Dockerfile path
+            DOCKERFILE_PATH="Docker/Dockerfile"
+            
             # Sanitize the repository name and branch name
-            REPOSITORY=$(echo "ghcr.io/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME" | tr '[:upper:]' '[:lower:]' | tr -d '_')
+            REPOSITORY=$(echo "ghcr.io/emmaallain/TP-security" | tr '[:upper:]' '[:lower:]' | tr -d '_')
             TAG=$(echo $CIRCLE_BRANCH | tr '[:upper:]' '[:lower:]' | tr '/' '-' | tr -cd '[:alnum:]._-' | cut -c 1-128)
+
+            echo "Building image: $REPOSITORY:$TAG"
 
             # Login to GHCR
             echo "$GHCR_PAT" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
 
             # Build the Docker image
             docker build \
-            -f docker/Dockerfile \
-            -t $REPOSITORY:$TAG \
-            --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
-            --build-arg TAG="${TAG}" \
-            --build-arg GIT_COMMIT=$(git rev-parse -q --verify HEAD) \
-            --build-arg GIT_URL=$(echo ${CIRCLE_REPOSITORY_URL} | sed -e 's/^git@/https:\/\//g' -e 's/\.git$//g' -e 's/:/\//g') \
-            --build-arg SQLITE_VERSION=3430200 \
-            --build-arg SQLITE_YEAR=2023 \
-            --build-arg PROJECT_USERNAME=$CIRCLE_PROJECT_USERNAME \
-            .
+              -f $DOCKERFILE_PATH \
+              -t $REPOSITORY:$TAG \
+              --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
+              --build-arg TAG="${TAG}" \
+              --build-arg GIT_COMMIT=$(git rev-parse -q --verify HEAD) \
+              --build-arg GIT_URL=$(echo ${CIRCLE_REPOSITORY_URL} | sed -e 's/^git@/https:\/\//g' -e 's/\.git$//g' -e 's/:/\//g') \
+              --build-arg SQLITE_VERSION=3430200 \
+              --build-arg SQLITE_YEAR=2023 \
+              --build-arg PROJECT_USERNAME=$CIRCLE_PROJECT_USERNAME \
+              .
 
             # Push the Docker image
             docker push $REPOSITORY:$TAG
-
+            
+            echo "Successfully pushed $REPOSITORY:$TAG"
 
   deploy-ssh-staging:
     executor: simple-executor
@@ -358,3 +356,4 @@ workflows:
                 - /^hotfix\/.*/
                 - /^bugfix\/.*/
                 - /debug\/.*/
+                
