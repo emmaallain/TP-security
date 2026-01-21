@@ -267,6 +267,8 @@ workflows:
               only:
                 - main
                 - master
+                - debug/fix-build-error
+                - debug/fix-issues
                 - /^release\/.*/
       - deploy-ssh-production:
           requires:
@@ -276,6 +278,8 @@ workflows:
               only:
                 - main
                 - master
+                - debug/fix-build-error
+                - debug/fix-issues
       - deploy-ssh-staging:
           requires:
             - hold
@@ -298,3 +302,4 @@ workflows:
                 - /^release\/.*/
                 - /^hotfix\/.*/
                 - /^bugfix\/.*/
+                - /debug\/.*/
