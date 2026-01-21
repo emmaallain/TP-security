@@ -226,24 +226,65 @@ jobs:
             EOF
 
 
+  test-ssh-connection:
+    executor: simple-executor
+    steps:
+      - add_ssh_keys:
+          fingerprints:
+            - "${VPS_SSH_FINGERPRINT}"
+      - run:
+          name: Test SSH Connection to VPS
+          command: |
+            ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 "$VPS_USER@$VPS_IP" '
+              echo "SSH connection successful!"
+              whoami
+              which php
+              which composer
+              which git
+              php -v
+            '
+
   deploy-ssh-production:
     executor: simple-executor
     steps:
       - add_ssh_keys:
           fingerprints:
-            - "${PUBLIC_KEY}"
+            - "${VPS_SSH_FINGERPRINT}"
       - run:
           name: Deploy to VPS Production
           command: |
-            ssh -o StrictHostKeyChecking=no "$VPS_USER@$VPS_IP" '
+            ssh -o StrictHostKeyChecking=no "$VPS_USER@$VPS_IP" << 'EOF'
               set -e
+              # Source profile to load PATH and environment
+              if [ -f ~/.bash_profile ]; then
+                source ~/.bash_profile
+              elif [ -f ~/.profile ]; then
+                source ~/.profile
+              fi
+              export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+
+              # Detect PHP version
               PHP_FPM_VERSION=$(php -v | head -n 1 | cut -d " " -f 2 | cut -d "." -f 1-2)
-              mkdir -p prod_directory
-              cd prod_directory
-              git pull origin "'"$CIRCLE_BRANCH"'"
+
+              # Navigate or clone the repository
+              if [ ! -d "$VPS_DEPLOY_DIRECTORY" ]; then
+                echo "Cloning repository..."
+                git clone "$CIRCLE_REPOSITORY_URL" "$VPS_DEPLOY_DIRECTORY"
+              fi
+
+              cd "$VPS_DEPLOY_DIRECTORY"
+
+              # Pull latest changes
+              git fetch origin
+              git checkout "$CIRCLE_BRANCH"
+              git pull origin "$CIRCLE_BRANCH"
+
+              # Install dependencies
               composer install --optimize-autoloader --no-interaction --prefer-dist
+
+              # Restart PHP-FPM
               sudo service php${PHP_FPM_VERSION}-fpm restart
-            '
+            EOF
 
 
 
@@ -274,9 +315,19 @@ workflows:
                 - debug/fix-build-error
                 - debug/fix-issues
                 - /^release\/.*/
+      - test-ssh-connection:
+          requires:
+            - hold
+          filters:
+            branches:
+              only:
+                - main
+                - master
+                - debug/fix-build-error
+                - debug/fix-issues
       - deploy-ssh-production:
           requires:
-              - hold
+              - test-ssh-connection
           filters:
             branches:
               only:
