@@ -249,8 +249,31 @@ jobs:
           fingerprints:
             - "${VPS_SSH_FINGERPRINT}"
       - run:
+          name: Install Infisical CLI
+          command: |
+            curl -1sLf 'https://dl.cloudsmith.io/public/infisical/infisical-cli/setup.deb.sh' | sudo -E bash
+            sudo apt-get update && sudo apt-get install -y infisical
+      - run:
+          name: Export secrets from Infisical
+          command: |
+            # Export secrets to a file
+            infisical export --format=dotenv --env=$INFISICAL_ENVIRONMENT --projectId=$INFISICAL_PROJECT_ID > /tmp/infisical_secrets.env
+
+            # Source the secrets
+            set -a
+            source /tmp/infisical_secrets.env
+            set +a
+
+            # Save to BASH_ENV for next steps
+            cat /tmp/infisical_secrets.env >> $BASH_ENV
+      - run:
           name: Deploy to VPS Production
           command: |
+            # Load secrets
+            set -a
+            source $BASH_ENV
+            set +a
+
             ssh -A -o StrictHostKeyChecking=no "$VPS_USER@$VPS_IP" \<< EOF
             set -e
             # Source profile to load PATH and environment
@@ -289,6 +312,9 @@ jobs:
             # Restart PHP-FPM
             sudo service php\${PHP_FPM_VERSION}-fpm restart
             EOF
+
+            # Copy .env file to VPS
+            scp -o StrictHostKeyChecking=no /tmp/infisical_secrets.env "$VPS_USER@$VPS_IP:$VPS_DEPLOY_DIRECTORY/.env"
 
 
 
