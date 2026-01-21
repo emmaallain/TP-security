@@ -253,7 +253,7 @@ jobs:
       - run:
           name: Deploy to VPS Production
           command: |
-            ssh -o StrictHostKeyChecking=no "$VPS_USER@$VPS_IP" << 'EOF'
+            ssh -o StrictHostKeyChecking=no "$VPS_USER@$VPS_IP" <<'EOF'
               set -e
               # Source profile to load PATH and environment
               if [ -f ~/.bash_profile ]; then
