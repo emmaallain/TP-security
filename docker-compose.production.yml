@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  app:
+    image: ghcr.io/emmaallain/tp-security:${TAG:-main}
+    container_name: php-devops-tp-prod
+    ports:
+      - "80:80"
+    volumes:
+      # Persist database
+      - ./database:/var/www/html/database
+    env_file:
+      - .env
+    restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  # Optional: Watchtower for auto-updates
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /root/.docker/config.json:/config.json
+    command: --interval 300 --cleanup --label-enable
+    restart: unless-stopped

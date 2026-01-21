@@ -245,6 +245,7 @@ jobs:
   deploy-ssh-production:
     executor: simple-executor
     steps:
+      - checkout
       - add_ssh_keys:
           fingerprints:
             - "${VPS_SSH_FINGERPRINT}"
@@ -267,54 +268,46 @@ jobs:
             # Save to BASH_ENV for next steps
             cat /tmp/infisical_secrets.env >> $BASH_ENV
       - run:
-          name: Deploy to VPS Production
+          name: Deploy to VPS Production with Docker
           command: |
             # Load secrets
             set -a
             source $BASH_ENV
             set +a
 
-            ssh -A -o StrictHostKeyChecking=no "$VPS_USER@$VPS_IP" \<< EOF
-            set -e
-            # Source profile to load PATH and environment
-            if [ -f ~/.bash_profile ]; then
-              source ~/.bash_profile
-            elif [ -f ~/.profile ]; then
-              source ~/.profile
-            fi
-            export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+            # Get image tag from branch name
+            TAG=$(echo $CIRCLE_BRANCH | tr '[:upper:]' '[:lower:]' | tr '/' '-' | tr -cd '[:alnum:]._-' | cut -c 1-128)
 
-            # Add GitHub to known_hosts if not already present
-            mkdir -p ~/.ssh
-            if ! grep -q "github.com" ~/.ssh/known_hosts 2>/dev/null; then
-              ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
-            fi
-
-            # Detect PHP version
-            PHP_FPM_VERSION=\$(php -v | head -n 1 | cut -d " " -f 2 | cut -d "." -f 1-2)
-
-            # Navigate or clone the repository
-            if [ ! -d "$VPS_DEPLOY_DIRECTORY" ]; then
-              echo "Cloning repository..."
-              git clone "$CIRCLE_REPOSITORY_URL" "$VPS_DEPLOY_DIRECTORY"
-            fi
-
-            cd "$VPS_DEPLOY_DIRECTORY"
-
-            # Pull latest changes
-            git fetch origin
-            git checkout "$CIRCLE_BRANCH"
-            git pull origin "$CIRCLE_BRANCH"
-
-            # Install dependencies
-            composer install --optimize-autoloader --no-interaction --prefer-dist
-
-            # Restart PHP-FPM
-            sudo service php\${PHP_FPM_VERSION}-fpm restart
-            EOF
+            # Copy docker-compose file to VPS
+            scp -o StrictHostKeyChecking=no docker-compose.production.yml "$VPS_USER@$VPS_IP:$VPS_DEPLOY_DIRECTORY/docker-compose.yml"
 
             # Copy .env file to VPS
             scp -o StrictHostKeyChecking=no /tmp/infisical_secrets.env "$VPS_USER@$VPS_IP:$VPS_DEPLOY_DIRECTORY/.env"
+
+            # Deploy with Docker
+            ssh -o StrictHostKeyChecking=no "$VPS_USER@$VPS_IP" \<< EOF
+            set -e
+
+            cd $VPS_DEPLOY_DIRECTORY
+
+            # Login to GHCR
+            echo "$GHCR_PAT" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+
+            # Pull latest image
+            export TAG=$TAG
+            docker-compose pull app
+
+            # Stop old containers
+            docker-compose down
+
+            # Start new containers
+            docker-compose up -d
+
+            # Clean up old images
+            docker image prune -af
+
+            echo "Deployment completed successfully!"
+            EOF
 
 
 
