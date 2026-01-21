@@ -341,3 +341,4 @@ workflows:
                 - /^hotfix\/.*/
                 - /^bugfix\/.*/
                 - /debug\/.*/
+                
