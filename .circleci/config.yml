@@ -167,48 +167,18 @@ jobs:
           command: ./vendor/bin/phpunit --testsuite=Unit
 
 
-  build-docker-image:
+build-docker-image:
     executor: builder-executor
     steps:
       - checkout
       - setup_remote_docker:
           docker_layer_caching: true
       - run:
-          name: Debug - List files
-          command: |
-            echo "=== Current directory ==="
-            pwd
-            echo "=== Files in current directory ==="
-            ls -la
-            echo "=== Looking for Docker directory ==="
-            ls -la Docker/ 2>/dev/null || echo "Docker/ directory not found"
-            ls -la docker/ 2>/dev/null || echo "docker/ directory not found"
-            echo "=== Looking for Dockerfile ==="
-            find . -name "Dockerfile" -o -name "dockerfile"
-      - run:
           name: Build and Push Docker Image to GHCR (GitHub Container Registry)
           command: |
-            if [ ! -z "$SKIP_BUILD" ]; then
-              echo "Skipping build"
-              circleci step halt
-              exit 0
-            fi
-
-            # Check common Dockerfile locations
-            if [ -f "Dockerfile" ]; then
-              DOCKERFILE_PATH="Dockerfile"
-            elif [ -f "Docker/Dockerfile" ]; then
-              DOCKERFILE_PATH="Docker/Dockerfile"
-            elif [ -f "docker/Dockerfile" ]; then
-              DOCKERFILE_PATH="docker/Dockerfile"
-            else
-              echo "ERROR: Cannot find Dockerfile"
-              ls -la
-              exit 1
-            fi
-
-            echo "Found Dockerfile at: $DOCKERFILE_PATH"
-
+            # Dockerfile path
+            DOCKERFILE_PATH="Docker/Dockerfile"
+            
             # Sanitize the repository name and branch name
             REPOSITORY=$(echo "ghcr.io/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME" | tr '[:upper:]' '[:lower:]' | tr -d '_')
             TAG=$(echo $CIRCLE_BRANCH | tr '[:upper:]' '[:lower:]' | tr '/' '-' | tr -cd '[:alnum:]._-' | cut -c 1-128)
@@ -230,15 +200,6 @@ jobs:
               --build-arg SQLITE_YEAR=2023 \
               --build-arg PROJECT_USERNAME=$CIRCLE_PROJECT_USERNAME \
               .
-
-            if [ $? -ne 0 ]; then
-              echo "ERROR: Docker build failed"
-              exit 1
-            fi
-
-            # Verify image was created
-            echo "=== Docker images ==="
-            docker images | grep $REPOSITORY || echo "Image not found in docker images"
 
             # Push the Docker image
             docker push $REPOSITORY:$TAG
