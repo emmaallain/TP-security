@@ -315,12 +315,24 @@ workflows:
       - test-phpunit:
           requires:
             - build-setup
+      - hold:
+          type: approval
+          requires:
+            - build-setup
+            - lint-phpcs
+            - security-check-dependencies
+            - test-phpunit
+          filters:
+            branches:
+              only:
+                - main
+                - master
+                - debug/fix-build-error
+                - debug/fix-issues
+                - /^release\/.*/
       - deploy-ssh-production:
           requires:
-              - build-setup
-              - lint-phpcs
-              - security-check-dependencies
-              - test-phpunit
+              - hold
           filters:
             branches:
               only:
@@ -330,7 +342,7 @@ workflows:
                 - debug/fix-issues
       - deploy-ssh-staging:
           requires:
-            - build-setup
+            - hold
           filters:
             branches:
               only:
