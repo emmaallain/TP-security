@@ -1,119 +1,165 @@
-# PHP DevOps TP
+# TP Security - CI/CD Pipeline
 
-Petit projet PHP d'exemple pour la classe DevSecOps — génère une image PNG dynamique et sert de démonstrateur pour le packaging Docker, tests et outils de qualité.
+Application PHP 8.2 avec pipeline CI/CD automatisé déployant sur VPS via Docker.
 
-## Description
+## 🚀 Quick Start
 
-L'application crée une image PNG contenant deux zones colorées et du texte (incluant la date/heure). Le point d'entrée HTTP est le fichier public/index.php qui instancie `App\\ImageCreator`.
-
-## Fonctionnalités
-
-- Génération d'image PNG dynamique (GD + TrueType)
-- Chargement des variables d'environnement via `vlucas/phpdotenv`
-- Conteneur Docker prêt à l'emploi (Docker/Dockerfile)
-
-## Prérequis
-
-- PHP >= 8.2
-- Extension GD
-- Composer
-
-## Installation (locale)
-
-1. Installer les dépendances :
+### Développement local
 
 ```bash
+# Cloner le repository
+git clone https://github.com/emmaallain/TP-security.git
+cd TP-security
+
+# Lancer avec Docker Compose
+docker-compose up -d
+
+# Accéder à l'application
+open http://localhost:8080
+```
+
+### Production
+
+L'application est automatiquement déployée sur le VPS après validation des tests et approbation manuelle dans CircleCI.
+
+## 🏗️ Architecture
+
+```
+GitHub Push → CircleCI → Tests/Lint/Security → Build Docker Image → GHCR
+                                    ↓
+                            Approbation Manuelle
+                                    ↓
+                          VPS Pull Image + Restart
+```
+
+## 🛠️ Stack Technique
+
+- **Backend:** PHP 8.2 + Apache
+- **Database:** SQLite
+- **CI/CD:** CircleCI
+- **Containerisation:** Docker + Docker Compose
+- **Registry:** GitHub Container Registry (GHCR)
+- **Secrets Management:** Doppler
+- **Infrastructure:** VPS Ubuntu avec Docker
+
+## 📋 Pipeline CI/CD
+
+Le pipeline CircleCI exécute automatiquement :
+
+1. **Quality Checks**
+   - PHP_CodeSniffer (PHPCS) - Analyse statique
+   - PHPCompatibility - Compatibilité PHP
+   - Local PHP Security Checker - Scan des vulnérabilités
+   - PHPUnit - Tests unitaires
+
+2. **Build & Push**
+   - Construction de l'image Docker
+   - Tag avec le nom de la branche
+   - Push sur GHCR (`ghcr.io/emmaallain/tp-security`)
+
+3. **Deployment** (après approbation manuelle)
+   - Récupération des secrets via Doppler
+   - Connexion SSH au VPS
+   - Pull de la dernière image Docker
+   - Redémarrage des containers avec Docker Compose
+
+## 🔐 Configuration Secrets
+
+Les secrets sont gérés dans Doppler avec les variables suivantes :
+
+- `VPS_USER` - Utilisateur SSH
+- `VPS_IP` - IP du VPS
+- `VPS_DEPLOY_DIRECTORY` - Dossier de déploiement
+- `GHCR_USERNAME` - Username GitHub
+- `GHCR_PAT` - Personal Access Token GitHub
+
+Dans CircleCI, ajouter uniquement :
+- `DOPPLER_TOKEN` - Service Token Doppler
+- `VPS_SSH_FINGERPRINT` - Fingerprint de la clé SSH
+
+## 📦 Structure du Projet
+
+```
+.
+├── .circleci/
+│   └── config.yml              # Configuration CI/CD
+├── Docker/
+│   └── Dockerfile              # Image PHP 8.2 Apache
+├── docker-compose.yml          # Dev local
+├── docker-compose.production.yml  # Production VPS
+├── src/                        # Code source PHP
+├── public/                     # Point d'entrée web
+├── database/                   # Base SQLite
+├── phpcs.xml                   # Règles PHPCS
+└── phpunit.xml                 # Configuration PHPUnit
+```
+
+## 🚢 Déploiement Manuel
+
+En cas de besoin, déployer manuellement sur le VPS :
+
+```bash
+# Se connecter au VPS
+ssh root@<VPS_IP>
+
+# Naviguer vers le dossier
+cd /var/www/tp-security
+
+# Pull et restart
+docker-compose pull
+docker-compose up -d
+```
+
+## 🔄 Rollback
+
+Pour revenir à une version précédente :
+
+```bash
+# Sur le VPS
+export TAG=<ancien_tag>
+docker-compose pull
+docker-compose up -d
+```
+
+## 📊 Monitoring
+
+Consulter les logs de l'application :
+
+```bash
+# Sur le VPS
+docker-compose logs -f app
+```
+
+## 🧪 Tests
+
+Lancer les tests localement :
+
+```bash
+# Avec Docker
+docker-compose exec app ./vendor/bin/phpunit
+
+# Ou localement
 composer install
+./vendor/bin/phpunit
 ```
 
-2. Copier `.env.example` si besoin et configurer les variables d'environnement :
+## 📝 Documentation
 
-```bash
-cp .env.example .env
-# puis adapter .env
-```
+Pour plus de détails sur l'architecture, les problèmes rencontrés et les solutions, consulter [RAPPORT.md](./RAPPORT.md).
 
-3. Lancer un serveur PHP intégré pour tests rapides :
+## 🤝 Contribution
 
-```bash
-php -S localhost:8000 -t public
-# puis ouvrir http://localhost:8000
-```
+1. Créer une branche feature : `git checkout -b feature/ma-feature`
+2. Commit : `git commit -m 'Add ma-feature'`
+3. Push : `git push origin feature/ma-feature`
+4. Ouvrir une Pull Request
 
-## Utilisation Docker
+Les workflows CircleCI se déclencheront automatiquement sur toutes les branches.
 
-Construire l'image :
+## 📄 License
 
-```bash
-docker build -t php-devops-tp -f Docker/Dockerfile .
-```
-
-Lancer le conteneur :
-
-```bash
-docker run -p 8080:80 php-devops-tp
-# puis ouvrir http://localhost:8080
-```
-
-## Tests
-
-Exécuter les tests PHPUnit :
-
-```bash
-composer install --dev
-vendor/bin/phpunit
-```
-
-> Remarque : les tests fournis sont des exemples triviales. Il est recommandé d'ajouter des tests unitaires pour `src/ImageCreator.php`.
-
-## Observations et recommandations de sécurité
-
-- `src/ImageCreator.php` concatène `APP_SECRET` directement dans le texte affiché sur l'image : NE PAS AFFICHER DE SECRETS. Retirer cette inclusion ou s'assurer que la valeur imprimée n'est pas sensible.
-- `phpunit.xml` référence actuellement un répertoire `<source>` `./app` — le code source se trouve dans `src/`. Corriger ce chemin pour des rapports de couverture valides.
-- Ajouter `squizlabs/php_codesniffer` et `phpcompatibility/php-compatibility` en `require-dev` si vous souhaitez utiliser `phpcs.xml` tel quel.
-
-## Fichiers importants
-
-- Point d'entrée HTTP : [public/index.php](public/index.php)
-- Génération d'image : [src/ImageCreator.php](src/ImageCreator.php)
-- Dockerfile : [Docker/Dockerfile](Docker/Dockerfile)
-- Configuration tests : [phpunit.xml](phpunit.xml)
-
-## Prochaines étapes suggérées
-
-- Supprimer l'affichage du secret dans `src/ImageCreator.php`.
-- Corriger `phpunit.xml` pour inclure `src/`.
-- Ajouter des tests ciblés pour `ImageCreator`.
-- Ajouter `phpcs` en dev et exécuter la vérification de style en CI.
-
-## Intégration continue (CircleCI)
-
-Qu'est-ce que CircleCI ?
-
-- CircleCI est un service d'intégration continue (CI) qui exécute automatiquement des pipelines (tests, lint, build, déploiement) à chaque commit ou pull request.
-
-Fichier de configuration :
-
-- Le projet contient un pipeline CircleCI dans `.circleci/config.yml`. Ce fichier définit les jobs et étapes exécutés par CircleCI.
-
-Comment l'activer :
-
-1. Créez un compte sur https://circleci.com et connectez votre dépôt Git (GitHub/GitLab/Bitbucket).
-2. Activez le projet sur CircleCI; CircleCI lira automatiquement `.circleci/config.yml` et déclenchera des builds.
-
-Étapes typiques à inclure dans la pipeline :
-
-- Installer les dépendances : `composer install`
-- Exécuter les tests : `vendor/bin/phpunit`
-- Exécuter l'analyse de code (`phpcs`) si souhaité
-- Construire l'image Docker et la publier (optionnel)
-
-Conseils pratiques :
-
-- Placez les variables sensibles (clés, tokens) dans les « Project Settings » > « Environment Variables » de CircleCI (ne pas les stocker dans le dépôt).
-- Configurez des caches pour Composer afin d'accélérer les builds.
-- Commencez par une pipeline simple (`composer install` + `phpunit`) puis ajoutez linting et build Docker.
+Ce projet est un TP académique.
 
 ---
 
-Faites-moi savoir si vous voulez que j'applique automatiquement les corrections proposées (patchs pour `ImageCreator.php` et `phpunit.xml`) ou que je crée des tests unitaires.
+**Note:** Ce projet utilise Doppler pour la gestion des secrets. Une migration depuis Infisical a été effectuée en raison de problèmes d'authentification avec leur API.
