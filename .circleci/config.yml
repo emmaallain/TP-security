@@ -232,40 +232,29 @@ jobs:
           fingerprints:
             - "${VPS_SSH_FINGERPRINT}"
       - run:
-          name: Install Infisical CLI
+          name: Install Doppler CLI
           command: |
-            curl -1sLf 'https://dl.cloudsmith.io/public/infisical/infisical-cli/setup.deb.sh' | sudo -E bash
-            sudo apt-get update && sudo apt-get install -y infisical
+            # Install Doppler CLI
+            curl -Ls --tlsv1.2 --proto "=https" --retry 3 https://cli.doppler.com/install.sh | sudo sh
       - run:
-          name: Export secrets from Infisical
+          name: Export secrets from Doppler
           command: |
-            # Export using service token directly
-            infisical export --token=$INFISICAL_TOKEN --format=dotenv > /tmp/infisical_secrets.env
+            # Export secrets using Doppler token
+            doppler secrets download --no-file --format env --token=$DOPPLER_TOKEN > /tmp/doppler_secrets.env
 
             # Verify the file is not empty
-            if [ ! -s /tmp/infisical_secrets.env ]; then
-              echo "Error: Failed to export secrets from Infisical"
-              cat /tmp/infisical_secrets.env
+            if [ ! -s /tmp/doppler_secrets.env ]; then
+              echo "Error: Failed to export secrets from Doppler"
               exit 1
             fi
 
-            # Debug: show first line (without values)
-            echo "Secrets loaded:"
-            head -1 /tmp/infisical_secrets.env | cut -d'=' -f1
-
-            # Source the secrets
-            set -a
-            source /tmp/infisical_secrets.env
-            set +a
-
-            # Save to BASH_ENV for next steps
-            cat /tmp/infisical_secrets.env >> $BASH_ENV
+            echo "Secrets successfully exported from Doppler"
       - run:
           name: Deploy to VPS Production with Docker
           command: |
             # Load secrets from file
             set -a
-            source /tmp/infisical_secrets.env
+            source /tmp/doppler_secrets.env
             set +a
 
             # Debug: verify variables are loaded
@@ -280,7 +269,7 @@ jobs:
             scp -o StrictHostKeyChecking=no docker-compose.production.yml "$VPS_USER@$VPS_IP:$VPS_DEPLOY_DIRECTORY/docker-compose.yml"
 
             # Copy .env file to VPS
-            scp -o StrictHostKeyChecking=no /tmp/infisical_secrets.env "$VPS_USER@$VPS_IP:$VPS_DEPLOY_DIRECTORY/.env"
+            scp -o StrictHostKeyChecking=no /tmp/doppler_secrets.env "$VPS_USER@$VPS_IP:$VPS_DEPLOY_DIRECTORY/.env"
 
             # Deploy with Docker
             ssh -o StrictHostKeyChecking=no "$VPS_USER@$VPS_IP" \<< EOF
