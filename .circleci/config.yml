@@ -239,17 +239,19 @@ jobs:
       - run:
           name: Export secrets from Infisical
           command: |
-            # Login to Infisical using service token
-            export INFISICAL_TOKEN=$(infisical login --method=universal-auth --client-id=$INFISICAL_CLIENT_ID --client-secret=$INFISICAL_CLIENT_SECRET --silent --plain)
-
-            # Export secrets to a file using the token
-            infisical export --format=dotenv --env=$INFISICAL_ENVIRONMENT --projectId=$INFISICAL_PROJECT_ID --token=$INFISICAL_TOKEN > /tmp/infisical_secrets.env
+            # Export using service token directly
+            infisical export --token=$INFISICAL_TOKEN --format=dotenv > /tmp/infisical_secrets.env
 
             # Verify the file is not empty
             if [ ! -s /tmp/infisical_secrets.env ]; then
               echo "Error: Failed to export secrets from Infisical"
+              cat /tmp/infisical_secrets.env
               exit 1
             fi
+
+            # Debug: show first line (without values)
+            echo "Secrets loaded:"
+            head -1 /tmp/infisical_secrets.env | cut -d'=' -f1
 
             # Source the secrets
             set -a
