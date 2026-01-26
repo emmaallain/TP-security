@@ -252,10 +252,15 @@ jobs:
       - run:
           name: Deploy to VPS Production with Docker
           command: |
-            # Load secrets
+            # Load secrets from file
             set -a
-            source $BASH_ENV
+            source /tmp/infisical_secrets.env
             set +a
+
+            # Debug: verify variables are loaded
+            echo "VPS_USER: $VPS_USER"
+            echo "VPS_IP: $VPS_IP"
+            echo "VPS_DEPLOY_DIRECTORY: $VPS_DEPLOY_DIRECTORY"
 
             # Get image tag from branch name
             TAG=$(echo $CIRCLE_BRANCH | tr '[:upper:]' '[:lower:]' | tr '/' '-' | tr -cd '[:alnum:]._-' | cut -c 1-128)
