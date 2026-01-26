@@ -224,24 +224,6 @@ jobs:
             EOF
 
 
-  test-ssh-connection:
-    executor: simple-executor
-    steps:
-      - add_ssh_keys:
-          fingerprints:
-            - "${VPS_SSH_FINGERPRINT}"
-      - run:
-          name: Test SSH Connection to VPS
-          command: |
-            ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 "$VPS_USER@$VPS_IP" '
-              echo "SSH connection successful!"
-              whoami
-              which php
-              which composer
-              which git
-              php -v
-            '
-
   deploy-ssh-production:
     executor: simple-executor
     steps:
@@ -338,19 +320,9 @@ workflows:
                 - debug/fix-build-error
                 - debug/fix-issues
                 - /^release\/.*/
-      - test-ssh-connection:
-          requires:
-            - hold
-          filters:
-            branches:
-              only:
-                - main
-                - master
-                - debug/fix-build-error
-                - debug/fix-issues
       - deploy-ssh-production:
           requires:
-              - test-ssh-connection
+              - hold
           filters:
             branches:
               only:
